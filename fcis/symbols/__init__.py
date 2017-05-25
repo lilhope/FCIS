@@ -1,2 +1,2 @@
-from resnet_v1_101_fcis import *
+from resnext_50_fcis import *
 
