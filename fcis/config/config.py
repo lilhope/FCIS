@@ -34,12 +34,10 @@ config.network.NUM_ANCHORS = len(config.network.ANCHOR_SCALES) * len(config.netw
 
 # dataset related params
 config.dataset = edict()
-config.dataset.dataset = 'PascalVOC'
-config.dataset.image_set = 'SDS_train'
-config.dataset.test_image_set = 'SDS_val'
-config.dataset.root_path = './data'
-config.dataset.dataset_path = './data/VOCdevkit'
-config.dataset.NUM_CLASSES = 21
+config.dataset.dataset = 'tianchi'
+config.dataset.image_set = 'strong_label'
+config.dataset.data_path = './data/'
+config.dataset.NUM_CLASSES = 2
 
 # Training configurations
 config.TRAIN = edict()

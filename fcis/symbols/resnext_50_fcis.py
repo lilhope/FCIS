@@ -20,7 +20,7 @@ class resnext_50_fcis(Symbol):
         """
         Use __init__ to define parameter network needs
         """
-        self.eps = 1e-5
+        self.eps = 1e-4
         self.use_global_stats = True
         self.workspace = 256
         self.bn_mom=0.9
@@ -183,7 +183,6 @@ class resnext_50_fcis(Symbol):
         num_classes = cfg.dataset.NUM_CLASSES
         num_reg_classes = (2 if cfg.CLASS_AGNOSTIC else num_classes)
         num_anchors = cfg.network.NUM_ANCHORS
-
         # input init
         if is_train:
             data = mx.sym.Variable(name='data')
@@ -198,9 +197,9 @@ class resnext_50_fcis(Symbol):
             im_info = mx.sym.Variable(name="im_info")
 
         # shared convolutional layers
-        conv_feat = self.get_resnet_v1_conv4(data)
+        conv_feat = self.get_resnext_conv4(data)
         # res5
-        relu1 = self.get_resnet_v1_conv5(conv_feat)
+        relu1 = self.get_resnext_conv5(conv_feat)
 
         rpn_cls_score, rpn_bbox_pred = self.get_rpn(conv_feat, num_anchors)
 
@@ -282,9 +281,9 @@ class resnext_50_fcis(Symbol):
                                        name='fcis_bbox')
 
         psroipool_cls_seg = mx.contrib.sym.PSROIPooling(name='psroipool_cls_seg', data=fcis_cls_seg, rois=rois,
-                                                        group_size=7, pooled_size=21, output_dim=num_classes*2, spatial_scale=0.0625)
+                                                        group_size=7, pooled_size=21, output_dim=num_classes*2, spatial_scale=0.125)
         psroipool_bbox_pred = mx.contrib.sym.PSROIPooling(name='psroipool_bbox', data=fcis_bbox, rois=rois,
-                                                          group_size=7, pooled_size=21,  output_dim=num_reg_classes*4, spatial_scale=0.0625)
+                                                          group_size=7, pooled_size=21,  output_dim=num_reg_classes*4, spatial_scale=0.125)
         if is_train:
             # classification path
             psroipool_cls = mx.contrib.sym.ChannelOperator(name='psroipool_cls', data=psroipool_cls_seg, group=num_classes, op_type='Group_Max')
@@ -342,6 +341,7 @@ class resnext_50_fcis(Symbol):
             bbox_loss = mx.sym.Reshape(data=bbox_loss, shape=(cfg.TRAIN.BATCH_IMAGES, -1, 4 * num_reg_classes),
                                        name='bbox_loss_reshape')
             group = mx.sym.Group([rpn_cls_prob, rpn_bbox_loss, cls_prob, bbox_loss, seg_prob, mx.sym.BlockGrad(mask_reg_targets), mx.sym.BlockGrad(rcnn_label)])
+            #group = mx.sym.Group([rpn_cls_prob,rpn_bbox_loss,cls_score,seg_pred])
         else:
             cls_prob = mx.sym.SoftmaxActivation(name='cls_prob', data=cls_score)
             if cfg.TEST.ITER == 2:
@@ -385,17 +385,17 @@ class resnext_50_fcis(Symbol):
         return group
 
     def init_weight(self, cfg, arg_params, aux_params):
-        arg_params['rpn_conv_3x3_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['rpn_conv_3x3_weight'])
+        arg_params['rpn_conv_3x3_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['rpn_conv_3x3_weight'])
         arg_params['rpn_conv_3x3_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['rpn_conv_3x3_bias'])
-        arg_params['rpn_cls_score_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['rpn_cls_score_weight'])
+        arg_params['rpn_cls_score_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['rpn_cls_score_weight'])
         arg_params['rpn_cls_score_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['rpn_cls_score_bias'])
-        arg_params['rpn_bbox_pred_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['rpn_bbox_pred_weight'])
+        arg_params['rpn_bbox_pred_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['rpn_bbox_pred_weight'])
         arg_params['rpn_bbox_pred_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['rpn_bbox_pred_bias'])
-        arg_params['conv_new_1_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['conv_new_1_weight'])
+        arg_params['conv_new_1_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['conv_new_1_weight'])
         arg_params['conv_new_1_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['conv_new_1_bias'])
-        arg_params['fcis_cls_seg_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['fcis_cls_seg_weight'])
+        arg_params['fcis_cls_seg_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['fcis_cls_seg_weight'])
         arg_params['fcis_cls_seg_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['fcis_cls_seg_bias'])
-        arg_params['fcis_bbox_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['fcis_bbox_weight'])
+        arg_params['fcis_bbox_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['fcis_bbox_weight'])
         arg_params['fcis_bbox_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['fcis_bbox_bias'])
 
 if __name__=="__main__":

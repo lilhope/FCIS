@@ -94,7 +94,7 @@ class ProposalAnnotatorOperator(mx.operator.CustomOp):
 
         # indexes selected
         keep_indexes = np.append(fg_indexes, bg_indexes)
-
+        #print(fg_indexes)
         # pad more to ensure a fixed minibatch size
         while keep_indexes.shape[0] < rois_per_image:
             gap = np.minimum(len(rois), rois_per_image - keep_indexes.shape[0])
@@ -132,10 +132,11 @@ class ProposalAnnotatorOperator(mx.operator.CustomOp):
         # masks
         # debug_gt_image_buffer = cv2.imread('debug_im_buffer.jpg')
         mask_reg_targets = -np.ones((len(keep_indexes), 1, self._mask_size, self._mask_size))
+        
         for idx, obj in enumerate(fg_indexes):
             gt_roi = np.round(gt_boxes[gt_assignment[obj], :-1]).astype(int)
             ex_roi = np.round(rois[idx, 1:]).astype(int)
-            gt_mask = gt_masks[gt_assignment[obj]]
+            gt_mask = gt_masks[0,:,:]
             mask_reg_target = intersect_box_mask(ex_roi, gt_roi, gt_mask)
             mask_reg_target = cv2.resize(mask_reg_target.astype(np.float), (self._mask_size, self._mask_size))
             mask_reg_target = mask_reg_target >= self._binary_thresh

@@ -44,7 +44,7 @@ from core import callback, metric
 from core.loader import AnchorLoader
 from core.module import MutableModule
 from utils.create_logger import create_logger
-from utils.load_data import load_gt_sdsdb, merge_roidb, filter_roidb
+from utils.load_data import load_gt_roidb
 from utils.load_model import load_param
 from utils.PrefetchingIter import PrefetchingIter
 from utils.lr_scheduler import WarmupMultiFactorScheduler
@@ -54,7 +54,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch, lr, 
     mx.random.seed(3)
     np.random.seed(3)
 
-    logger, final_output_path = create_logger(config.output_path, args.cfg, config.dataset.image_set)
+    logger, final_output_path = create_logger(config.output_path, args.cfg,config.dataset.image_set)
     prefix = os.path.join(final_output_path, prefix)
 
     # load symbol
@@ -72,14 +72,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch, lr, 
     logger.info('training config:{}\n'.format(pprint.pformat(config)))
 
     # load dataset and prepare imdb for training
-    image_sets = [iset for iset in config.dataset.image_set.split('+')]
-    sdsdbs = [load_gt_sdsdb(config.dataset.dataset, image_set, config.dataset.root_path, config.dataset.dataset_path,
-                            mask_size=config.MASK_SIZE, binary_thresh=config.BINARY_THRESH,
-                            result_path=final_output_path, flip=config.TRAIN.FLIP)
-              for image_set in image_sets]
-    sdsdb = merge_roidb(sdsdbs)
-    sdsdb = filter_roidb(sdsdb, config)
-
+    sdsdb = load_gt_roidb(config.dataset.dataset,config.dataset.data_path)
     # load training data
     train_data = AnchorLoader(feat_sym, sdsdb, config, batch_size=input_batch_size, shuffle=config.TRAIN.SHUFFLE,
                               ctx=ctx, feat_stride=config.network.RPN_FEAT_STRIDE, anchor_scales=config.network.ANCHOR_SCALES,
@@ -98,27 +91,35 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch, lr, 
     data_shape_dict = dict(train_data.provide_data_single + train_data.provide_label_single)
     print 'data shape:'
     pprint.pprint(data_shape_dict)
-    sym_instance.infer_shape(data_shape_dict)
+    """sym_test = sym.get_internals()['seg_pred_output']
+    del data_shape_dict['proposal_bbox_weight']
+    del data_shape_dict['proposal_label']
+    del data_shape_dict['proposal_bbox_target']
+    output_shape = sym_test.infer_shape_partial(**data_shape_dict)[1]
+    print(output_shape)"""
+    output_shape = sym_instance.infer_shape(data_shape_dict)
+    print(output_shape)
 
     # load and initialize params
+    arg_params,aux_params = {},{}
     if config.TRAIN.RESUME:
         print 'continue training from ', begin_epoch
         arg_params, aux_params = load_param(prefix, begin_epoch, convert=True)
     else:
-        arg_params, aux_params = load_param(pretrained, epoch, convert=True)
+        #no pre-trained model provided
+        #arg_params, aux_params = load_param(pretrained, epoch, convert=True)
         sym_instance.init_weight(config, arg_params, aux_params)
 
     # check parameter shapes
-    sym_instance.check_parameter_shapes(arg_params, aux_params, data_shape_dict)
+    #sym_instance.check_parameter_shapes(arg_params, aux_params, data_shape_dict)
 
     # create solver
-    fixed_param_prefix = config.network.FIXED_PARAMS
     data_names = [k[0] for k in train_data.provide_data_single]
     label_names = [k[0] for k in train_data.provide_label_single]
 
     mod = MutableModule(sym, data_names=data_names, label_names=label_names,
                         logger=logger, context=ctx, max_data_shapes=[max_data_shape for _ in xrange(batch_size)],
-                        max_label_shapes=[max_label_shape for _ in xrange(batch_size)], fixed_param_prefix=fixed_param_prefix)
+                        max_label_shapes=[max_label_shape for _ in xrange(batch_size)])
 
     # decide training metric
     # RPN, classification accuracy/loss, regression loss
@@ -144,6 +145,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch, lr, 
 
     # print epoch, begin_epoch, end_epoch, lr_step
     base_lr = lr
+    print(base_lr)
     lr_factor = 0.1
     lr_epoch = [float(epoch) for epoch in lr_step.split(',')]
     lr_epoch_diff = [epoch - begin_epoch for epoch in lr_epoch if epoch > begin_epoch]
@@ -152,6 +154,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch, lr, 
     print 'lr', lr, 'lr_epoch_diff', lr_epoch_diff, 'lr_iters', lr_iters
     lr_scheduler = WarmupMultiFactorScheduler(lr_iters, lr_factor, config.TRAIN.warmup, config.TRAIN.warmup_lr, config.TRAIN.warmup_step)
     # optimizer
+    print('lr scheduler done')
     optimizer_params = {'momentum': config.TRAIN.momentum,
                         'wd': config.TRAIN.wd,
                         'learning_rate': lr,
@@ -169,7 +172,7 @@ def train_net(args, ctx, pretrained, epoch, prefix, begin_epoch, end_epoch, lr, 
 
     mod.fit(train_data, eval_metric=eval_metrics, epoch_end_callback=epoch_end_callback,
             batch_end_callback=batch_end_callback, kvstore=config.default.kvstore,
-            optimizer='sgd', optimizer_params=optimizer_params,
+            optimizer='sgd', optimizer_params=optimizer_params,allow_missing=True,initializer=mx.initializer.Xavier(),
             arg_params=arg_params, aux_params=aux_params, begin_epoch=begin_epoch, num_epoch=end_epoch)
 
 

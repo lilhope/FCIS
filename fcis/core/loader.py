@@ -59,7 +59,7 @@ class AnchorLoader(mx.io.DataIter):
     def reset(self):
         self.cur = 0
         if self.shuffle:
-            if self.aspect_grouping:
+            """if self.aspect_grouping:
                 widths = np.array([r['width'] for r in self.roidb])
                 heights = np.array([r['height'] for r in self.roidb])
                 horz = (widths >= heights)
@@ -72,8 +72,8 @@ class AnchorLoader(mx.io.DataIter):
                 row_perm = np.random.permutation(np.arange(inds_.shape[0]))
                 inds[:-extra] = np.reshape(inds_[row_perm, :], (-1,))
                 self.index = inds
-            else:
-                np.random.shuffle(self.index)
+            else:"""
+            np.random.shuffle(self.index)
 
     @property
     def provide_data(self):
@@ -123,7 +123,7 @@ class AnchorLoader(mx.io.DataIter):
         input_batch_size = max_shapes['data'][0]
         im_info = [[max_shapes['data'][2], max_shapes['data'][3], 1.0]]
         _, feat_shape, _ = self.feat_sym.infer_shape(**max_shapes)
-        label = assign_anchor(feat_shape[0], np.zeros((0, 5)), im_info, self.cfg,
+        label = assign_anchor(feat_shape[0], np.zeros((1, 5)), im_info, self.cfg,
                               self.feat_stride, self.anchor_scales, self.anchor_ratios, self.allowed_border)
 
         new_label = {
@@ -172,16 +172,14 @@ class AnchorLoader(mx.io.DataIter):
         data_shape = {k: v.shape for k, v in data.items()}
         # not use im info for RPN training
         del data_shape['im_info']
+        del data_shape['gt_masks']
         _, feat_shape, _ = self.feat_sym.infer_shape(**data_shape)
         feat_shape = [int(i) for i in feat_shape[0]]
 
         # add gt_boxes to data for e2e
         data['gt_boxes'] = label['gt_boxes'][np.newaxis, :, :]
-
         # add gt_masks to data for e2e
         assert len(roidb) == 1
-        gt_masks = get_gt_masks(roidb[0]['cache_seg_inst'], data['im_info'][0,:2].astype('int'))
-        data['gt_masks'] = gt_masks
 
         # assign anchor for label
         label = assign_anchor(feat_shape, label['gt_boxes'], data['im_info'], self.cfg,

@@ -14,7 +14,8 @@ class ProposalOperator(mx.operator.CustomOp):
         self._feat_stride = feat_stride
         self._scales = np.fromstring(scales[1:-1], dtype=float, sep=',')
         self._ratios = np.fromstring(ratios[1:-1], dtype=float, sep=',')
-        self._anchors = generate_anchors(base_size=self._feat_stride, scales=self._scales, ratios=self._ratios)
+        base_anchor = np.array([1,1,self._feat_stride,self._feat_stride],dtype=np.float32) - 1
+        self._anchors = generate_anchors(base_anchor, scales=self._scales, ratios=self._ratios)
         self._num_anchors = self._anchors.shape[0]
         self._output_score = output_score
         self._rpn_pre_nms_top_n = rpn_pre_nms_top_n
@@ -24,7 +25,6 @@ class ProposalOperator(mx.operator.CustomOp):
 
     def forward(self, is_train, req, in_data, out_data, aux):
         nms = gpu_nms_wrapper(self._nms_thresh, in_data[0].context.device_id)
-
         batch_size = in_data[0].shape[0]
         if batch_size > 1:
             raise ValueError('Sorry, multiple images each device is not implemented')
@@ -40,7 +40,6 @@ class ProposalOperator(mx.operator.CustomOp):
         im_info = in_data[2].asnumpy()[0, :]
 
         height, width = int(im_info[0] / self._feat_stride), int(im_info[1] / self._feat_stride)
-
         # Enumerate all shifts
         shift_x = np.arange(0, width) * self._feat_stride
         shift_y = np.arange(0, height) * self._feat_stride
@@ -78,10 +77,8 @@ class ProposalOperator(mx.operator.CustomOp):
 
         # Convert anchors into proposals via bbox transformations
         proposals = bbox_pred(anchors, bbox_deltas)
-
         # 2. clip predicted boxes to image
         proposals = clip_boxes(proposals, im_info[:2])
-
         # 3. remove predicted boxes with either height or width < threshold
         # (NOTE: convert min_size to input image scale stored in im_info[2])
         keep = self._filter_boxes(proposals, min_size)
