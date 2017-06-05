@@ -43,20 +43,16 @@ def get_rpn_batch(roidb, cfg):
     :return: data, label
     """
     assert len(roidb) == 1, 'Single batch only'
-    imgs, roidb = get_image(roidb, cfg)
+    imgs, roidb,masks = get_image(roidb, cfg)
     im_array = imgs[0]
+    mask_array = masks[0]
     im_info = np.array([roidb[0]['im_info']], dtype=np.float32)
-
-    # gt boxes: (x1, y1, x2, y2, cls)
-    if roidb[0]['gt_classes'].size > 0:
-        gt_inds = np.where(roidb[0]['gt_classes'] != 0)[0]
-        gt_boxes = np.empty((roidb[0]['boxes'].shape[0], 5), dtype=np.float32)
-        gt_boxes[:, 0:4] = roidb[0]['boxes'][gt_inds, :]
-        gt_boxes[:, 4] = roidb[0]['gt_classes'][gt_inds]
-    else:
-        gt_boxes = np.empty((0, 5), dtype=np.float32)
-
+    
+    gt_boxes = np.empty((roidb[0]['gt_boxes'].shape[0], 5), dtype=np.float32)
+    gt_boxes[:, 0:4] = roidb[0]['gt_boxes']
+    gt_boxes[:, 4] = 1
     data = {'data': im_array,
+            'gt_masks':mask_array,
             'im_info': im_info}
     label = {'gt_boxes': gt_boxes}
 
@@ -92,10 +88,11 @@ def assign_anchor(feat_shape, gt_boxes, im_info, cfg, feat_stride=16,
             ret[inds, :] = data
         return ret
 
-    DEBUG = False
+    DEBUG = True
     im_info = im_info[0]
     scales = np.array(scales, dtype=np.float32)
-    base_anchors = generate_anchors(base_size=feat_stride, ratios=list(ratios), scales=scales)
+    base_anchor = np.array([1,1,16,16],dtype=np.float32) - 1
+    base_anchors = generate_anchors(base_anchor, ratios=list(ratios), scales=scales)
     num_anchors = base_anchors.shape[0]
     feat_height, feat_width = feat_shape[-2:]
 
@@ -150,6 +147,8 @@ def assign_anchor(feat_shape, gt_boxes, im_info, cfg, feat_stride=16,
         argmax_overlaps = overlaps.argmax(axis=1)
         max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
         gt_argmax_overlaps = overlaps.argmax(axis=0)
+        #gt_assignment = overlaps.argmax(axis=1)
+        #print(gt_assignment)
         gt_max_overlaps = overlaps[gt_argmax_overlaps, np.arange(overlaps.shape[1])]
         gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
 
@@ -226,4 +225,5 @@ def assign_anchor(feat_shape, gt_boxes, im_info, cfg, feat_stride=16,
     label = {'label': labels,
              'bbox_target': bbox_targets,
              'bbox_weight': bbox_weights}
+    #print(bbox_targets[0,0:4,0,0])
     return label

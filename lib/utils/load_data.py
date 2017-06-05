@@ -2,11 +2,10 @@ import numpy as np
 from dataset import *
 
 
-def load_gt_roidb(dataset_name, image_set_name, root_path, dataset_path, result_path=None,
-                  flip=False):
+def load_gt_roidb(dataset_name,dataset_path,flip=False):
     """ load ground truth roidb """
-    imdb = eval(dataset_name)(image_set_name, root_path, dataset_path, result_path)
-    roidb = imdb.gt_roidb()
+    imdb = TianChi(dataset_name,dataset_path)
+    roidb = imdb.gt_sds_db()
     if flip:
         roidb = imdb.append_flipped_images(roidb)
     return roidb

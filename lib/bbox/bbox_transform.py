@@ -103,8 +103,8 @@ def nonlinear_transform(ex_rois, gt_rois):
     gt_heights = gt_rois[:, 3] - gt_rois[:, 1] + 1.0
     gt_ctr_x = gt_rois[:, 0] + 0.5 * (gt_widths - 1.0)
     gt_ctr_y = gt_rois[:, 1] + 0.5 * (gt_heights - 1.0)
-
     targets_dx = (gt_ctr_x - ex_ctr_x) / (ex_widths + 1e-14)
+    #print(gt_widths)
     targets_dy = (gt_ctr_y - ex_ctr_y) / (ex_heights + 1e-14)
     targets_dw = np.log(gt_widths / ex_widths)
     targets_dh = np.log(gt_heights / ex_heights)

@@ -18,25 +18,28 @@ def get_image(roidb, config):
     """
     num_images = len(roidb)
     processed_ims = []
+    processed_masks = []    
     processed_roidb = []
     for i in range(num_images):
         roi_rec = roidb[i]
-        assert os.path.exists(roi_rec['image']), '%s does not exist'.format(roi_rec['image'])
-        im = cv2.imread(roi_rec['image'], cv2.IMREAD_COLOR|cv2.IMREAD_IGNORE_ORIENTATION)
-        if roidb[i]['flipped']:
+        assert os.path.exists(roi_rec['img_file']), '%s does not exist'.format(roi_rec['img_file'])
+        assert os.path.exists(roi_rec['mask_file']), "%s does not exist".format(roi_rec['mask_file'])
+        im = cv2.imread(roi_rec['img_file'])
+        mask = cv2.imread(roi_rec['mask_file'])
+        """if roidb[i]['flipped']:
             im = im[:, ::-1, :]
+            mask = mask[:,::-1,:]"""
         new_rec = roi_rec.copy()
-        scale_ind = random.randrange(len(config.SCALES))
-        target_size = config.SCALES[scale_ind][0]
-        max_size = config.SCALES[scale_ind][1]
-        im, im_scale = resize(im, target_size, max_size, stride=config.network.IMAGE_STRIDE)
         im_tensor = transform(im, config.network.PIXEL_MEANS)
+        mask = mask[:,:,0]
+        mask = mask[np.newaxis,:,:]
         processed_ims.append(im_tensor)
-        im_info = [im_tensor.shape[2], im_tensor.shape[3], im_scale]
-        new_rec['boxes'] = clip_boxes(np.round(roi_rec['boxes'].copy() * im_scale), im_info[:2])
+        im_info = [im_tensor.shape[2], im_tensor.shape[3],1]
+        new_rec['boxes'] = roi_rec['gt_boxes']
         new_rec['im_info'] = im_info
         processed_roidb.append(new_rec)
-    return processed_ims, processed_roidb
+        processed_masks.append(mask)
+    return processed_ims, processed_roidb,processed_masks
 
 
 def get_segmentation_image(segdb, config):
