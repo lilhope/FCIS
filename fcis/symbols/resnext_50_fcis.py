@@ -169,7 +169,7 @@ class resnext_50_fcis(Symbol):
 
     def get_rpn(self, conv_feat, num_anchors):
         rpn_conv = mx.sym.Convolution(
-            data=conv_feat, kernel=(3, 3), stride=(2,2),pad=(1, 1), num_filter=256, name="rpn_conv_3x3")
+            data=conv_feat, kernel=(3, 3), stride=(1,1),pad=(1, 1), num_filter=256, name="rpn_conv_3x3")
         rpn_relu = mx.sym.Activation(data=rpn_conv, act_type="relu", name="rpn_relu")
         rpn_cls_score = mx.sym.Convolution(
             data=rpn_relu, kernel=(1, 1), pad=(0, 0), num_filter=2 * num_anchors, name="rpn_cls_score")
