@@ -9,8 +9,8 @@ class TianChi():
     def __init__(self,name,data_path,mode='train'):
         self.name = name
         self.data_path = data_path
-        self.images_path  = os.path.join(data_path,"images/CT")
-        self.masks_path = os.path.join(data_path,"masks/CT")
+        self.images_path  = os.path.join(data_path,mode,"images/CT")
+        self.masks_path = os.path.join(data_path,mode,"masks/CT")
         self.file_list = os.listdir(self.images_path)
         self.cache_path = os.path.join(data_path,"cache")
         self.mode = mode
@@ -27,10 +27,11 @@ class TianChi():
             for file_name in self.file_list:
                 image_file = os.path.join(self.images_path,file_name)
                 mask_file = os.path.join(self.masks_path,file_name)
-                gt_boxes = get_GT_box(mask_file)
+                gt_boxes,base_boxes = get_GT_box(mask_file)
                 datum = {"img_file":image_file,
                          'mask_file':mask_file,
                          'gt_boxes':gt_boxes,
+                         'base_boxes':base_boxes,
                          'flipped':False}
                 sbsdb.append(datum)
             with open(cache_file,'wb') as f:

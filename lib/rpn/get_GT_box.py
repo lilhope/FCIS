@@ -16,15 +16,25 @@ def get_base_box(img):
         y_max = np.max(contour[:,:,1])
         bbox.append([x_min,y_min,x_max,y_max])
     return bbox
-def generate_GT_bbox(base_box,ratios=[0.75,1,1.25],scales=np.array([2,4,8]),random_drift=True):
-    GT_boxes = generate_anchors(base_box,ratios,scales)
-    if random_drift:
-        diameter = min(base_box[2]-base_box[0],base_box[3]-base_box[1])
-        ds = scales * diameter
-        for i in range(len(ratios)):
-            for j in range(ds.shape[0]):
-                GT_boxes[i*len(ratios)+j,:] += np.random.uniform(-0.5,0.5)*ds[j]/2
-    return GT_boxes
+def generate_GT_bbox(base_box):
+    ws = base_box[2] - base_box[0] + 1
+    hs = base_box[3] - base_box[1] + 1
+    cord_x = base_box[0] + 0.5 * (ws - 1)
+    cord_y = base_box[1] + 0.5 * (hs - 1)
+    if(ws<=5 | hs <=5):
+        w = ws * 8
+        h = hs * 8
+    elif(ws>18 | hs>18):
+        w = ws
+        h = hs
+    else:
+        w = ws * 2
+        h = hs * 2
+    GT_box = np.array([[cord_x - 0.5 * (w - 1),
+                       cord_y - 0.5 * (h - 1),
+                       cord_x + 0.5 * (w - 1),
+                       cord_y + 0.5 * (h - 1)]],dtype=np.float32)
+    return GT_box
 def clean_GT_boxes(GT_boxes,height,width):
     for i in range(GT_boxes.shape[0]):
         GT_boxes[i,0] = max(GT_boxes[i,0],0)
@@ -45,14 +55,14 @@ def get_GT_box(file_name):
         else:
             GT_boxes = np.vstack((GT_boxes,GT_box))
     clean_GT_boxes(GT_boxes,height,width)
-    return GT_boxes
+    return GT_boxes,base_boxes
             
     
             
     
 if __name__ == "__main__":
-    img = cv2.imread("/home/lilhope/FCIS/data/masks/CT/image_LKDS-00004_0147.jpg")
-    ct = cv2.imread("/home/lilhope/FCIS/data/images/CT/image_LKDS-00004_0147.jpg")
+    img = cv2.imread("/home/lilhope/FCIS/data/train/masks/CT/image_LKDS-00004_0147.jpg")
+    ct = cv2.imread("/home/lilhope/FCIS/data/train/images/CT/image_LKDS-00004_0147.jpg")
     base_boxes = get_base_box(img)    
     plt.figure()
     ax = plt.gca()
