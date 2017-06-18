@@ -73,7 +73,7 @@ class resnext_50_fcis(Symbol):
             return mx.symbol.Activation(data=eltwise,act_type='relu',name=name+'_relu')
         
 
-    def get_resnext_conv4(self, data):
+    def get_resnext_conv3(self, data):
         #res1 different from the offical implement,we doesn't do spatial scale here
         body = mx.symbol.Convolution(data=data,num_filter=64,kernel=(3,3),stride=(1,1),pad=(1,1),
                                      no_bias = True,workspace=self.workspace,name="conv0")
@@ -92,7 +92,9 @@ class resnext_50_fcis(Symbol):
         for i in range(2,self.units[1]+1):
             body = self.redusial_unit(data=body,num_filter=self.filter_list[1],stride=(1,1),
                                       dim_match=True,name='stage3_unit%s' % i)
-        #res4
+        return body
+    
+    def get_resnext_conv4(self,body):
         body = self.redusial_unit(data=body,num_filter=self.filter_list[2],stride=(2,2),
                                   dim_match=False,name='stage4_unit1')
         for i in range(2,self.units[2]+1):
@@ -169,7 +171,7 @@ class resnext_50_fcis(Symbol):
 
     def get_rpn(self, conv_feat, num_anchors):
         rpn_conv = mx.sym.Convolution(
-            data=conv_feat, kernel=(3, 3), stride=(1,1),pad=(1, 1), num_filter=256, name="rpn_conv_3x3")
+            data=conv_feat, kernel=(3, 3), stride=(1,1),pad=(1, 1), num_filter=128, name="rpn_conv_3x3")
         rpn_relu = mx.sym.Activation(data=rpn_conv, act_type="relu", name="rpn_relu")
         rpn_cls_score = mx.sym.Convolution(
             data=rpn_relu, kernel=(1, 1), pad=(0, 0), num_filter=2 * num_anchors, name="rpn_cls_score")
@@ -197,11 +199,12 @@ class resnext_50_fcis(Symbol):
             im_info = mx.sym.Variable(name="im_info")
 
         # shared convolutional layers
-        conv_feat = self.get_resnext_conv4(data)
+        rpn_conv_feat = self.get_resnext_conv3(data)
+        conv_feat = self.get_resnext_conv4(rpn_conv_feat)
         # res5
         relu1 = self.get_resnext_conv5(conv_feat)
 
-        rpn_cls_score, rpn_bbox_pred = self.get_rpn(conv_feat, num_anchors)
+        rpn_cls_score, rpn_bbox_pred = self.get_rpn(rpn_conv_feat, num_anchors)
 
         if is_train:
             # prepare rpn data
@@ -280,6 +283,12 @@ class resnext_50_fcis(Symbol):
         fcis_bbox = mx.sym.Convolution(data=relu_new_1, kernel=(1, 1), num_filter=7*7*4*num_reg_classes,
                                        name='fcis_bbox')
 
+        """psroipool_cls_seg = mx.contrib.sym.PSROIAlign(name='psroialign_cls_seg', data=fcis_cls_seg, rois=rois,
+                                                        group_size=7, aligned_size=22, output_dim=num_classes*2, spatial_scale=0.125)
+        psroipool_cls_seg = mx.sym.Pooling(name='psroialign_cls_seg_pool',data=psroipool_cls_seg,kernel=(2,2),stride=(1,1),pad=(0,0),pool_type='avg')
+        psroipool_bbox_pred = mx.contrib.sym.PSROIAlign(name='psroipool_bbox', data=fcis_bbox, rois=rois,
+                                                          group_size=7, aligned_size=22,  output_dim=num_reg_classes*4, spatial_scale=0.125)
+        psroipool_bbox_pred = mx.sym.Pooling(name='psroialign_bbox_pred_pool',data=psroipool_bbox_pred,kernel=(2,2),pad=(0,0),stride=(1,1),pool_type='avg')"""
         psroipool_cls_seg = mx.contrib.sym.PSROIPooling(name='psroipool_cls_seg', data=fcis_cls_seg, rois=rois,
                                                         group_size=7, pooled_size=21, output_dim=num_classes*2, spatial_scale=0.125)
         psroipool_bbox_pred = mx.contrib.sym.PSROIPooling(name='psroipool_bbox', data=fcis_bbox, rois=rois,
@@ -385,17 +394,17 @@ class resnext_50_fcis(Symbol):
         return group
 
     def init_weight(self, cfg, arg_params, aux_params):
-        arg_params['rpn_conv_3x3_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['rpn_conv_3x3_weight'])
+        arg_params['rpn_conv_3x3_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['rpn_conv_3x3_weight'])
         arg_params['rpn_conv_3x3_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['rpn_conv_3x3_bias'])
-        arg_params['rpn_cls_score_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['rpn_cls_score_weight'])
+        arg_params['rpn_cls_score_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['rpn_cls_score_weight'])
         arg_params['rpn_cls_score_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['rpn_cls_score_bias'])
-        arg_params['rpn_bbox_pred_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['rpn_bbox_pred_weight'])
+        arg_params['rpn_bbox_pred_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['rpn_bbox_pred_weight'])
         arg_params['rpn_bbox_pred_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['rpn_bbox_pred_bias'])
-        arg_params['conv_new_1_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['conv_new_1_weight'])
+        arg_params['conv_new_1_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['conv_new_1_weight'])
         arg_params['conv_new_1_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['conv_new_1_bias'])
-        arg_params['fcis_cls_seg_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['fcis_cls_seg_weight'])
+        arg_params['fcis_cls_seg_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['fcis_cls_seg_weight'])
         arg_params['fcis_cls_seg_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['fcis_cls_seg_bias'])
-        arg_params['fcis_bbox_weight'] = mx.random.normal(0, 0.001, shape=self.arg_shape_dict['fcis_bbox_weight'])
+        arg_params['fcis_bbox_weight'] = mx.random.normal(0, 0.01, shape=self.arg_shape_dict['fcis_bbox_weight'])
         arg_params['fcis_bbox_bias'] = mx.nd.zeros(shape=self.arg_shape_dict['fcis_bbox_bias'])
 
 if __name__=="__main__":

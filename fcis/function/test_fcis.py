@@ -14,9 +14,10 @@ from dataset import *
 from core.loader import TestLoader
 from core.tester import Predictor, pred_eval
 from utils.load_model import load_param
+from utils.load_data import load_gt_roidb
 
 
-def test_fcis(config, dataset, image_set, root_path, dataset_path,
+def test_fcis(config, dataset, image_set,data_path,
               ctx, prefix, epoch,
               vis, ignore_cache, shuffle, has_rpn, proposal, thresh, logger=None, output_path=None):
     if not logger:
@@ -30,9 +31,7 @@ def test_fcis(config, dataset, image_set, root_path, dataset_path,
     if has_rpn:
         sym_instance = eval(config.symbol)()
         sym = sym_instance.get_symbol(config, is_train=False)
-        imdb = eval(dataset)(image_set, root_path, dataset_path, result_path=output_path, 
-                             binary_thresh=config.BINARY_THRESH, mask_size=config.MASK_SIZE)
-        sdsdb = imdb.gt_sdsdb()
+        sdsdb = load_gt_roidb(dataset,data_path,mode='val')
     else:
         raise NotImplementedError
 
@@ -62,4 +61,4 @@ def test_fcis(config, dataset, image_set, root_path, dataset_path,
                           arg_params=arg_params, aux_params=aux_params)
 
     # start detection
-    pred_eval(predictor, test_data, imdb, config, vis=vis, ignore_cache=ignore_cache, thresh=thresh, logger=logger)
+    pred_eval(predictor, test_data,config, vis=vis, ignore_cache=ignore_cache, thresh=thresh, logger=logger)

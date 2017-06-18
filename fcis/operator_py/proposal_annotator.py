@@ -40,6 +40,7 @@ class ProposalAnnotatorOperator(mx.operator.CustomOp):
             assert self._batch_rois % self._batch_images == 0
             rois_per_image = self._batch_rois / self._batch_images
             fg_rois_per_image = np.round(self._fg_fraction * rois_per_image).astype(int)
+            #print(fg_rois_per_image)
 
         # include ground-truth boxes in the set of candidate rois
         zeros = np.zeros((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
@@ -69,6 +70,7 @@ class ProposalAnnotatorOperator(mx.operator.CustomOp):
 
         # foreground RoI with FG_THRESH overlap
         fg_indexes = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
+        #print(len(fg_indexes))
         if cfg.TRAIN.IGNORE_GAP:
             keep_inds = remove_repetition(rois[fg_indexes, 1:])
             fg_indexes = fg_indexes[keep_inds]

@@ -84,6 +84,7 @@ class ProposalOperator(mx.operator.CustomOp):
         keep = self._filter_boxes(proposals, min_size)
         proposals = proposals[keep, :]
         scores = scores[keep]
+        #self._debug_boxes(proposals)
 
         # 4. sort all (proposal, score) pairs by score from highest to lowest
         # 5. take top pre_nms_topN (e.g. 6000)
@@ -91,6 +92,7 @@ class ProposalOperator(mx.operator.CustomOp):
         if pre_nms_top_n > 0:
             order = order[:pre_nms_top_n]
         proposals = proposals[order, :]
+        #self._debug_boxes(proposals)
         scores = scores[order]
 
         # 6. apply nms (e.g. threshold = 0.7)
@@ -98,6 +100,9 @@ class ProposalOperator(mx.operator.CustomOp):
         # 8. return the top proposals (-> RoIs top)
         det = np.hstack((proposals, scores)).astype(np.float32)
         keep = nms(det)
+        #debug_box = proposals[keep,:]
+        #self._debug_boxes(debug_box)
+        #print(len(keep))
         if post_nms_top_n > 0:
             keep = keep[:post_nms_top_n]
         # pad to ensure output size remains unchanged
@@ -105,6 +110,8 @@ class ProposalOperator(mx.operator.CustomOp):
             pad = np.random.choice(keep, size=post_nms_top_n - len(keep))
             keep = np.hstack((keep, pad))
         proposals = proposals[keep, :]
+        #print(proposals.shape)
+        #self._debug_boxes(proposals)
         scores = scores[keep]
 
         # Output rois array
@@ -129,6 +136,13 @@ class ProposalOperator(mx.operator.CustomOp):
         hs = boxes[:, 3] - boxes[:, 1] + 1
         keep = np.where((ws >= min_size) & (hs >= min_size))[0]
         return keep
+    @staticmethod
+    def _debug_boxes(boxes):
+        """print BEBUG INFO of Boxes"""
+        ws = boxes[:,2] - boxes[:,0] + 1
+        hs = boxes[:,3] - boxes[:,1] + 1
+        look = np.where((ws <=10)|(hs <=10))[0]
+        print(look.shape)
 
     @staticmethod
     def _clip_pad(tensor, pad_shape):

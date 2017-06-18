@@ -36,6 +36,7 @@ config.network.NUM_ANCHORS = len(config.network.ANCHOR_SCALES) * len(config.netw
 config.dataset = edict()
 config.dataset.dataset = 'tianchi'
 config.dataset.image_set = 'strong_label'
+config.dataset.test_image_set = 'strong_label_test'
 config.dataset.data_path = './data/'
 config.dataset.NUM_CLASSES = 2
 

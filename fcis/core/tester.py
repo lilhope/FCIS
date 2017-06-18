@@ -66,10 +66,11 @@ def im_detect(predictor, data_batch, data_names, scales, cfg):
     return scores_all, pred_boxes_all, pred_masks_all, data_dict_all
 
 
-def pred_eval(predictor, test_data, imdb, cfg, vis=False, thresh=1e-3, logger=None, ignore_cache=False):
-
-    det_file = os.path.join(imdb.result_path, imdb.name + '_detections.pkl')
-    seg_file = os.path.join(imdb.result_path, imdb.name + '_masks.pkl')
+def pred_eval(predictor, test_data,cfg, vis=False, thresh=1e-3, logger=None, ignore_cache=False):
+    result_path = cfg.dataset.result_path
+    det_file = os.path.join(result_path,'_detections.pkl')
+    seg_file = os.path.join(result_path,'_masks.pkl')
+    num_images = 1777
 
     if os.path.exists(det_file) and os.path.exists(seg_file) and not ignore_cache:
         with open(det_file, 'rb') as f:
@@ -88,11 +89,11 @@ def pred_eval(predictor, test_data, imdb, cfg, vis=False, thresh=1e-3, logger=No
         mask_voting = gpu_mask_voting if cfg.TEST.USE_GPU_MASK_MERGE else cpu_mask_voting
 
         max_per_image = 100 if cfg.TEST.USE_MASK_MERGE else -1
-        num_images = imdb.num_images
+        
         all_boxes = [[[] for _ in xrange(num_images)]
-                     for _ in xrange(imdb.num_classes)]
+                     for _ in xrange(2)]
         all_masks = [[[] for _ in xrange(num_images)]
-                     for _ in xrange(imdb.num_classes)]
+                     for _ in xrange(2)]
 
         idx = 0
         t = time.time()
@@ -111,7 +112,7 @@ def pred_eval(predictor, test_data, imdb, cfg, vis=False, thresh=1e-3, logger=No
             for delta, (scores, boxes, masks, data_dict) in enumerate(zip(scores_all, boxes_all, masks_all, data_dict_all)):
 
                 if not cfg.TEST.USE_MASK_MERGE:
-                    for j in range(1, imdb.num_classes):
+                    for j in range(1, 2):
                         indexes = np.where(scores[:, j] > thresh)[0]
                         cls_scores = scores[indexes, j, np.newaxis]
                         cls_masks = masks[indexes, 1, :, :]
@@ -129,26 +130,26 @@ def pred_eval(predictor, test_data, imdb, cfg, vis=False, thresh=1e-3, logger=No
                         all_masks[j][idx + delta] = cls_masks[keep, :]
                 else:
                     masks = masks[:, 1:, :, :]
-                    result_mask, result_box = mask_voting(masks, boxes, scores, imdb.num_classes,
+                    result_mask, result_box = mask_voting(masks, boxes, scores, 2,
                                                           max_per_image, im_shapes[delta][1], im_shapes[delta][0],
                                                           cfg.TEST.NMS, cfg.TEST.MASK_MERGE_THRESH,
                                                           cfg.BINARY_THRESH)
-                    for j in xrange(1, imdb.num_classes):
+                    for j in xrange(1, 2):
                         all_boxes[j][idx+delta] = result_box[j]
                         all_masks[j][idx+delta] = result_mask[j][:,0,:,:]
 
                 if vis:
-                    boxes_this_image = [[]] + [all_boxes[j][idx + delta] for j in range(1, imdb.num_classes)]
-                    masks_this_image = [[]] + [all_masks[j][idx + delta] for j in range(1, imdb.num_classes)]
+                    boxes_this_image = [[]] + [all_boxes[j][idx + delta] for j in range(1, 2)]
+                    masks_this_image = [[]] + [all_masks[j][idx + delta] for j in range(1, 2)]
                     vis_all_mask(data_dict['data'].asnumpy(), boxes_this_image, masks_this_image, imdb.classes, scales[delta], cfg)
 
             idx += test_data.batch_size
             t3 = time.time() - t
             t = time.time()
 
-            print 'testing {}/{} data {:.4f}s net {:.4f}s post {:.4f}s'.format(idx, imdb.num_images, t1, t2, t3)
+            print 'testing {}/{} data {:.4f}s net {:.4f}s post {:.4f}s'.format(idx, 1777, t1, t2, t3)
             if logger:
-                logger.info('testing {}/{} data {:.4f}s net {:.4f}s post {:.4f}s'.format(idx, imdb.num_images, t1, t2, t3))
+                logger.info('testing {}/{} data {:.4f}s net {:.4f}s post {:.4f}s'.format(idx, 1777, t1, t2, t3))
             
         with open(det_file, 'wb') as f:
             cPickle.dump(all_boxes, f, protocol=cPickle.HIGHEST_PROTOCOL)
@@ -158,8 +159,6 @@ def pred_eval(predictor, test_data, imdb, cfg, vis=False, thresh=1e-3, logger=No
     info_str = imdb.evaluate_sds(all_boxes, all_masks)
     if logger:
         logger.info('evaluate detections: \n{}'.format(info_str))
-
-        
 def vis_all_mask(im_array, detections, masks, class_names, scale, cfg):
     """
     visualize all detections in one image
